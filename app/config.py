@@ -12,6 +12,7 @@ Usage in app factory:
 
 import os
 import secrets
+
 from dotenv import load_dotenv
 
 # Load .env file if present (local dev only; Render/Railway inject env vars directly)
@@ -35,7 +36,7 @@ class _BaseConfig:
     RATELIMIT_HEADERS_ENABLED: bool = True
 
     # ── Session Security ──────────────────────────────────────
-    SESSION_COOKIE_HTTPONLY: bool = True   # JS cannot access session cookie
+    SESSION_COOKIE_HTTPONLY: bool = True  # JS cannot access session cookie
     SESSION_COOKIE_SAMESITE: str = "Lax"  # CSRF mitigation
 
     # ── Request Limits ────────────────────────────────────────
@@ -44,6 +45,7 @@ class _BaseConfig:
 
 class DevelopmentConfig(_BaseConfig):
     """Local development — debug enabled, relaxed security."""
+
     DEBUG: bool = True
     TESTING: bool = False
     SESSION_COOKIE_SECURE: bool = False  # HTTP is fine locally
@@ -51,6 +53,7 @@ class DevelopmentConfig(_BaseConfig):
 
 class ProductionConfig(_BaseConfig):
     """Deployed app — strict security, no debug output."""
+
     DEBUG: bool = False
     TESTING: bool = False
     SESSION_COOKIE_SECURE: bool = True  # HTTPS only in production
@@ -58,6 +61,7 @@ class ProductionConfig(_BaseConfig):
 
 class TestingConfig(_BaseConfig):
     """Pytest environment — AI calls will be mocked."""
+
     DEBUG: bool = True
     TESTING: bool = True
     # Use a fixed key so session data is consistent between requests in tests
@@ -66,6 +70,7 @@ class TestingConfig(_BaseConfig):
     SESSION_COOKIE_SECURE: bool = False
     # Disable rate limiting during tests for clean assertions
     RATELIMIT_ENABLED: bool = False
+    CSRF_ENABLED: bool = False
 
 
 # ── Config registry ───────────────────────────────────────────

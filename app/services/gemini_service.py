@@ -5,7 +5,7 @@ Abstracts all interactions with the Google Gemini API.
 Each public method corresponds to one AI-powered feature in the app.
 
 Design decisions:
-  - One GeminiService instance is created per request (cheap; state is minimal)
+  - One GeminiService instance is reused per worker to preserve HTTP connections
   - Chat history is stored as a plain list of dicts so it serialises cleanly
     into Flask's session (which uses JSON under the hood)
   - All prompts are built via private helper methods to keep prompt engineering
@@ -14,22 +14,23 @@ Design decisions:
     route handlers don't need to import Gemini-specific exceptions
 """
 
-import re
 import logging
 from typing import Any
 
-import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
+from google import genai
+from google.genai import errors, types
 
 logger = logging.getLogger(__name__)
 
 # ── Safety settings — applied to every API call ───────────────
-_SAFETY_SETTINGS = {
-    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-}
+_SAFETY_SETTINGS = [
+    types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_MEDIUM_AND_ABOVE"),
+    types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_MEDIUM_AND_ABOVE"),
+    types.SafetySetting(
+        category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_MEDIUM_AND_ABOVE"
+    ),
+    types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_ONLY_HIGH"),
+]
 
 # ── System instruction shared by all AI calls ─────────────────
 _SYSTEM_INSTRUCTION = """You are WeatherWise, an expert AI assistant specialising in monsoon preparedness, 
@@ -64,9 +65,8 @@ class GeminiService:
     def __init__(self, api_key: str, model_name: str = "gemini-3.5-flash") -> None:
         if not api_key:
             raise ValueError("GEMINI_API_KEY is required but not set.")
-        genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel(
-            model_name=model_name,
+        self._client = genai.Client(api_key=api_key)
+        self._config = types.GenerateContentConfig(
             system_instruction=_SYSTEM_INSTRUCTION,
             safety_settings=_SAFETY_SETTINGS,
         )
@@ -93,22 +93,23 @@ class GeminiService:
         Returns:
             Tuple of (AI response text, updated history list).
         """
-        # Reconstruct Gemini chat session from serialised history
-        gemini_history = self._deserialise_history(history)
-        chat_session = self._model.start_chat(history=gemini_history)
-
         # Append weather context and language tag to the user message
         full_message = self._build_chat_message(user_message, language, weather_context)
+        contents = list(history or [])
+        contents.append({"role": "user", "parts": [{"text": full_message}]})
 
         try:
-            response = chat_session.send_message(full_message)
+            response = self._client.models.generate_content(
+                model=self._model_name,
+                contents=contents,
+                config=self._config,
+            )
             reply_text = self._extract_text(response)
-        except Exception as exc:
+        except errors.APIError as exc:
             logger.error("Gemini chat error: %s", exc)
             raise ValueError(f"AI service error: {exc}") from exc
 
-        # Serialise updated history back to plain dicts for session storage
-        updated_history = self._serialise_history(chat_session.history)
+        updated_history = contents + [{"role": "model", "parts": [{"text": reply_text}]}]
         return reply_text, updated_history
 
     def generate_preparedness_plan(
@@ -284,9 +285,7 @@ Include:
 Respond in: {language}"""
 
     @staticmethod
-    def _build_alerts_prompt(
-        location: str, phase: str, language: str, weather_context: str
-    ) -> str:
+    def _build_alerts_prompt(location: str, phase: str, language: str, weather_context: str) -> str:
         weather_line = f"\nCurrent weather data: {weather_context}" if weather_context else ""
         phase_map = {
             "before": "pre-monsoon (onset approaching in 1-2 weeks)",
@@ -313,9 +312,13 @@ Respond in: {language}"""
     def _generate(self, prompt: str) -> str:
         """Send a single-turn generation request and return text."""
         try:
-            response = self._model.generate_content(prompt)
+            response = self._client.models.generate_content(
+                model=self._model_name,
+                contents=prompt,
+                config=self._config,
+            )
             return self._extract_text(response)
-        except Exception as exc:
+        except errors.APIError as exc:
             logger.error("Gemini generation error: %s", exc)
             raise ValueError(f"AI service error: {exc}") from exc
 
@@ -331,22 +334,3 @@ Respond in: {language}"""
                 "I'm unable to generate a response for that request. "
                 "Please rephrase your question or contact emergency services if this is urgent."
             )
-
-    @staticmethod
-    def _serialise_history(gemini_history: list) -> list[dict]:
-        """Convert Gemini Content objects → plain dicts for JSON serialisation."""
-        result = []
-        for content in gemini_history:
-            result.append({
-                "role": content.role,
-                "parts": [part.text for part in content.parts if hasattr(part, "text")],
-            })
-        return result
-
-    @staticmethod
-    def _deserialise_history(history: list[dict]) -> list[dict]:
-        """
-        Pass plain dicts directly to start_chat — the SDK accepts this format.
-        Returns an empty list if history is None or empty.
-        """
-        return history or []

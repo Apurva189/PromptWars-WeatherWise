@@ -7,27 +7,27 @@ using unittest.mock to avoid actual API calls.
 Run with:  pytest tests/test_services.py -v
 """
 
-from unittest.mock import patch, MagicMock, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 from app.services.gemini_service import GeminiService
 from app.services.weather_service import WeatherService
 
-
 # ════════════════════════════════════════════════════════════
 # GeminiService Tests
 # ════════════════════════════════════════════════════════════
+
 
 class TestGeminiService:
     """Unit tests for GeminiService."""
 
     @pytest.fixture
     def mock_model(self):
-        """Return a mocked GenerativeModel instance."""
+        """Return a mocked Google Gen AI models client."""
         with patch("app.services.gemini_service.genai") as mock_genai:
             mock_model = MagicMock()
-            mock_genai.GenerativeModel.return_value = mock_model
+            mock_genai.Client.return_value.models = mock_model
             yield mock_model
 
     def _make_response(self, text: str) -> MagicMock:
@@ -49,18 +49,8 @@ class TestGeminiService:
     # ── Chat ──────────────────────────────────────────────
 
     def test_chat_returns_reply_and_history(self, mock_model):
-        # Mock chat session
-        mock_session = MagicMock()
         response = self._make_response("Stay safe during floods!")
-        mock_session.send_message.return_value = response
-        # history after chat
-        mock_content = MagicMock()
-        mock_content.role = "user"
-        part = MagicMock()
-        part.text = "Hello"
-        mock_content.parts = [part]
-        mock_session.history = [mock_content]
-        mock_model.start_chat.return_value = mock_session
+        mock_model.generate_content.return_value = response
 
         svc = GeminiService(api_key="fake-key")
         reply, history = svc.chat(
@@ -73,11 +63,8 @@ class TestGeminiService:
         assert isinstance(history, list)
 
     def test_chat_passes_weather_context(self, mock_model):
-        mock_session = MagicMock()
         response = self._make_response("AI response with context")
-        mock_session.send_message.return_value = response
-        mock_session.history = []
-        mock_model.start_chat.return_value = mock_session
+        mock_model.generate_content.return_value = response
 
         svc = GeminiService(api_key="fake-key")
         svc.chat(
@@ -88,13 +75,15 @@ class TestGeminiService:
         )
 
         # Verify message sent to model contains the weather context
-        call_args = mock_session.send_message.call_args[0][0]
-        assert "Heavy rain in Mumbai" in call_args
+        contents = mock_model.generate_content.call_args.kwargs["contents"]
+        assert "Heavy rain in Mumbai" in contents[-1]["parts"][0]["text"]
 
     def test_chat_gemini_error_raises_value_error(self, mock_model):
-        mock_session = MagicMock()
-        mock_session.send_message.side_effect = RuntimeError("API quota exceeded")
-        mock_model.start_chat.return_value = mock_session
+        from google.genai import errors
+
+        mock_model.generate_content.side_effect = errors.APIError(
+            429, {"message": "API quota exceeded"}
+        )
 
         svc = GeminiService(api_key="fake-key")
         with pytest.raises(ValueError, match="AI service error"):
@@ -123,13 +112,15 @@ class TestGeminiService:
         svc = GeminiService(api_key="fake-key")
         svc.generate_preparedness_plan("Kolkata", 3, [], "before")
 
-        prompt = mock_model.generate_content.call_args[0][0]
+        prompt = mock_model.generate_content.call_args.kwargs["contents"]
         assert "Kolkata" in prompt
 
     # ── Checklist ─────────────────────────────────────────
 
     def test_generate_checklist_returns_string(self, mock_model):
-        mock_model.generate_content.return_value = self._make_response("## Checklist\n- Water bottles")
+        mock_model.generate_content.return_value = self._make_response(
+            "## Checklist\n- Water bottles"
+        )
 
         svc = GeminiService(api_key="fake-key")
         result = svc.generate_checklist("Chennai", "apartment", 3, "Tamil")
@@ -145,7 +136,7 @@ class TestGeminiService:
         svc = GeminiService(api_key="fake-key")
         svc.generate_travel_advisory("Bangalore", "Coorg", "2025-08-15", "car")
 
-        prompt = mock_model.generate_content.call_args[0][0]
+        prompt = mock_model.generate_content.call_args.kwargs["contents"]
         assert "Bangalore" in prompt
         assert "Coorg" in prompt
 
@@ -157,7 +148,7 @@ class TestGeminiService:
         svc = GeminiService(api_key="fake-key")
         svc.generate_alerts("Mumbai", "during", "English")
 
-        prompt = mock_model.generate_content.call_args[0][0]
+        prompt = mock_model.generate_content.call_args.kwargs["contents"]
         assert "during" in prompt.lower() or "active" in prompt.lower()
 
     # ── Safety response fallback ──────────────────────────
@@ -179,17 +170,20 @@ class TestGeminiService:
 # WeatherService Tests
 # ════════════════════════════════════════════════════════════
 
+
 class TestWeatherService:
     """Unit tests for WeatherService."""
 
     MOCK_GEOCODE_RESPONSE = {
-        "results": [{
-            "latitude": 19.076,
-            "longitude": 72.877,
-            "name": "Mumbai",
-            "country": "India",
-            "admin1": "Maharashtra",
-        }]
+        "results": [
+            {
+                "latitude": 19.076,
+                "longitude": 72.877,
+                "name": "Mumbai",
+                "country": "India",
+                "admin1": "Maharashtra",
+            }
+        ]
     }
 
     MOCK_FORECAST_RESPONSE = {
@@ -206,14 +200,14 @@ class TestWeatherService:
             "windspeed_10m": [20.0] * 48,
             "relativehumidity_2m": [85] * 48,
             "weathercode": [63] * 48,
-        }
+        },
     }
 
     @pytest.fixture
     def svc(self):
         return WeatherService()
 
-    @patch("app.services.weather_service.requests.get")
+    @patch("app.services.weather_service._HTTP.get")
     def test_get_weather_returns_correct_structure(self, mock_get, svc):
         # First call: geocoding, second call: forecast
         geocode_resp = MagicMock()
@@ -233,7 +227,7 @@ class TestWeatherService:
         assert "forecast_summary" in data
         assert data["current"]["temperature"] == 28.5
 
-    @patch("app.services.weather_service.requests.get")
+    @patch("app.services.weather_service._HTTP.get")
     def test_unknown_city_raises_value_error(self, mock_get, svc):
         no_results_resp = MagicMock()
         no_results_resp.json.return_value = {"results": []}
@@ -243,7 +237,7 @@ class TestWeatherService:
         with pytest.raises(ValueError, match="not found"):
             svc.get_weather("FakeNonExistentCity999")
 
-    @patch("app.services.weather_service.requests.get")
+    @patch("app.services.weather_service._HTTP.get")
     def test_search_cities_returns_multiple_matches(self, mock_get, svc):
         response = MagicMock()
         response.raise_for_status = MagicMock()
@@ -273,18 +267,44 @@ class TestWeatherService:
         assert matches[0]["name"] == "Mumbai"
         assert mock_get.call_args.kwargs["params"]["count"] == 8
 
+    @patch("app.services.weather_service._HTTP.get")
+    def test_search_cities_uses_bounded_cache(self, mock_get, svc):
+        response = MagicMock()
+        response.raise_for_status = MagicMock()
+        response.json.return_value = {"results": [{"name": "Pune", "country": "India"}]}
+        mock_get.return_value = response
+
+        first = svc.search_cities("Pune")
+        second = svc.search_cities("pune")
+
+        assert first == second
+        mock_get.assert_called_once()
+
+    @patch("app.services.weather_service._HTTP.get")
+    def test_geocoding_reuses_cached_coordinates(self, mock_get, svc):
+        response = MagicMock()
+        response.raise_for_status = MagicMock()
+        response.json.return_value = self.MOCK_GEOCODE_RESPONSE
+        mock_get.return_value = response
+
+        first = svc._geocode("Mumbai")
+        second = svc._geocode("mumbai")
+
+        assert first == second
+        mock_get.assert_called_once()
+
     def test_alert_level_calculation(self, svc):
         """Verify IMD-style alert level thresholds."""
-        assert svc._calculate_alert_level(0)    == "green"
+        assert svc._calculate_alert_level(0) == "green"
         assert svc._calculate_alert_level(14.9) == "green"
-        assert svc._calculate_alert_level(15)   == "yellow"
+        assert svc._calculate_alert_level(15) == "yellow"
         assert svc._calculate_alert_level(63.9) == "yellow"
-        assert svc._calculate_alert_level(64)   == "orange"
-        assert svc._calculate_alert_level(114.9)== "orange"
-        assert svc._calculate_alert_level(115)  == "red"
-        assert svc._calculate_alert_level(200)  == "red"
+        assert svc._calculate_alert_level(64) == "orange"
+        assert svc._calculate_alert_level(114.9) == "orange"
+        assert svc._calculate_alert_level(115) == "red"
+        assert svc._calculate_alert_level(200) == "red"
 
-    @patch("app.services.weather_service.requests.get")
+    @patch("app.services.weather_service._HTTP.get")
     def test_build_weather_context_string(self, mock_get, svc):
         geocode_resp = MagicMock()
         geocode_resp.json.return_value = self.MOCK_GEOCODE_RESPONSE

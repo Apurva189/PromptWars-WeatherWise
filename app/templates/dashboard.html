@@ -60,7 +60,10 @@
 
       <div class="user-menu">
         <span class="user-menu__name" title="Logged in as {{ username }}">👤 {{ username }}</span>
-        <a href="{{ url_for('main.logout') }}" class="btn btn--ghost btn--sm" id="logout-btn">Logout</a>
+        <form method="POST" action="{{ url_for('main.logout') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <button type="submit" class="btn btn--ghost btn--sm" id="logout-btn">Logout</button>
+        </form>
       </div>
     </div>
   </header>

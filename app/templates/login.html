@@ -29,6 +29,7 @@
     {% endwith %}
 
     <form class="auth-form" method="POST" action="{{ url_for('main.login') }}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <div class="form-group">
         <label for="username" class="form-label">👤 Username</label>
         <input

@@ -5,7 +5,8 @@ Protects dashboard and API routes by verifying the user is logged in.
 """
 
 from functools import wraps
-from flask import session, redirect, url_for, request, jsonify
+
+from flask import jsonify, redirect, request, session, url_for
 
 
 def login_required(f):

@@ -17,6 +17,16 @@
 
 'use strict';
 
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+function apiFetch(url, options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (options.method && options.method.toUpperCase() !== 'GET') {
+    headers.set('X-CSRF-Token', csrfToken);
+  }
+  return window.fetch(url, { ...options, headers });
+}
+
 // ── Constants ─────────────────────────────────────────────────
 const API = {
   WEATHER:      '/api/weather',
@@ -195,7 +205,7 @@ function initCityAutocomplete() {
       timer = setTimeout(async () => {
         controller = new AbortController();
         try {
-          const response = await fetch(`${API.CITIES}?q=${encodeURIComponent(query)}`, {
+          const response = await apiFetch(`${API.CITIES}?q=${encodeURIComponent(query)}`, {
             signal: controller.signal,
           });
           if (!response.ok) { closeList(); return; }
@@ -297,7 +307,7 @@ async function fetchWeather(city) {
   if (desc) desc.textContent = 'Fetching…';
 
   try {
-    const resp = await fetch(`${API.WEATHER}?city=${encodeURIComponent(city)}`);
+    const resp = await apiFetch(`${API.WEATHER}?city=${encodeURIComponent(city)}`);
     if (!resp.ok) {
       const err = await resp.json();
       throw new Error(err.error || 'Failed to fetch weather');
@@ -420,7 +430,7 @@ async function sendChatMessage() {
   const typingId = showTypingIndicator();
 
   try {
-    const resp = await fetch(API.CHAT, {
+    const resp = await apiFetch(API.CHAT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -522,7 +532,7 @@ function removeTypingIndicator(id) {
 /** Call the reset API and clear the chat UI. */
 async function resetChat() {
   try {
-    await fetch(API.CHAT_RESET, { method: 'POST' });
+    await apiFetch(API.CHAT_RESET, { method: 'POST' });
   } catch (_) {
     // Best-effort — clear UI regardless
   }
@@ -674,7 +684,7 @@ async function callAI({ url, body, loadingText, resultEl, contentEl, responseKey
   showLoading(loadingText);
 
   try {
-    const resp = await fetch(url, {
+    const resp = await apiFetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

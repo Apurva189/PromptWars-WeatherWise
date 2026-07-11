@@ -12,23 +12,25 @@ Error handling pattern:
 """
 
 import logging
-from flask import Blueprint, request, jsonify, session, current_app
+from functools import lru_cache
+
+from flask import Blueprint, current_app, jsonify, request, session
 
 from app import limiter
 from app.services.gemini_service import GeminiService
 from app.services.weather_service import WeatherService
+from app.utils.auth import login_required
 from app.utils.validators import (
-    sanitise_text,
     sanitise_city,
+    sanitise_text,
+    validate_date,
     validate_family_size,
+    validate_housing_type,
     validate_language,
     validate_phase,
-    validate_housing_type,
     validate_transport_mode,
     validate_vulnerabilities,
-    validate_date,
 )
-from app.utils.auth import login_required
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +48,12 @@ def _get_gemini_service() -> GeminiService:
     """
     api_key = current_app.config.get("GEMINI_API_KEY")
     model = current_app.config.get("GEMINI_MODEL", "gemini-3.5-flash")
+    return _create_gemini_service(api_key, model)
+
+
+@lru_cache(maxsize=4)
+def _create_gemini_service(api_key: str, model: str) -> GeminiService:
+    """Reuse the SDK client and its HTTP connection pool within each worker."""
     return GeminiService(api_key=api_key, model_name=model)
 
 
@@ -57,6 +65,7 @@ def _json_error(message: str, status: int = 400):
 # ─────────────────────────────────────────────────────────────
 # Weather endpoint (no AI — just fetches Open-Meteo data)
 # ─────────────────────────────────────────────────────────────
+
 
 @api_bp.route("/weather", methods=["GET"])
 @limiter.limit("30 per minute")
@@ -101,6 +110,7 @@ def search_cities():
 # ─────────────────────────────────────────────────────────────
 # Chat endpoint
 # ─────────────────────────────────────────────────────────────
+
 
 @api_bp.route("/chat", methods=["POST"])
 @limiter.limit("10 per minute")
@@ -166,6 +176,7 @@ def reset_chat():
 # Preparedness Plan endpoint
 # ─────────────────────────────────────────────────────────────
 
+
 @api_bp.route("/preparedness-plan", methods=["POST"])
 @limiter.limit("10 per minute")
 @login_required
@@ -218,6 +229,7 @@ def preparedness_plan():
 # Emergency Checklist endpoint
 # ─────────────────────────────────────────────────────────────
 
+
 @api_bp.route("/checklist", methods=["POST"])
 @limiter.limit("10 per minute")
 @login_required
@@ -261,6 +273,7 @@ def checklist():
 # ─────────────────────────────────────────────────────────────
 # Travel Advisory endpoint
 # ─────────────────────────────────────────────────────────────
+
 
 @api_bp.route("/travel-advisory", methods=["POST"])
 @limiter.limit("10 per minute")
@@ -313,6 +326,7 @@ def travel_advisory():
 # Alerts endpoint
 # ─────────────────────────────────────────────────────────────
 
+
 @api_bp.route("/alerts", methods=["POST"])
 @limiter.limit("10 per minute")
 @login_required
@@ -353,6 +367,7 @@ def alerts():
 # ─────────────────────────────────────────────────────────────
 # Private helper
 # ─────────────────────────────────────────────────────────────
+
 
 def _try_get_weather_context(city: str) -> str:
     """

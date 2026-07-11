@@ -11,14 +11,15 @@ Run with:  pytest tests/test_routes.py -v
 """
 
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app import create_app
-
+from app.routes import api as api_routes
 
 # ── Fixtures ──────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="module")
 def app():
@@ -42,6 +43,7 @@ def client(app):
 # PAGE ROUTES
 # ════════════════════════════════════════════════════════════
 
+
 class TestPageRoutes:
     """Test HTML page-rendering routes."""
 
@@ -60,8 +62,13 @@ class TestPageRoutes:
     def test_dashboard_contains_key_panels(self, client):
         resp = client.get("/dashboard")
         # Check all five panel IDs are present
-        for panel in [b"panel-chat", b"panel-plan", b"panel-checklist",
-                      b"panel-travel", b"panel-alerts"]:
+        for panel in [
+            b"panel-chat",
+            b"panel-plan",
+            b"panel-checklist",
+            b"panel-travel",
+            b"panel-alerts",
+        ]:
             assert panel in resp.data, f"Missing panel: {panel}"
 
     def test_health_endpoint(self, client):
@@ -77,10 +84,22 @@ class TestPageRoutes:
         data = resp.get_json()
         assert "error" in data
 
+    @patch("app.routes.api.GeminiService")
+    def test_gemini_service_client_is_reused(self, mock_service):
+        api_routes._create_gemini_service.cache_clear()
+
+        first = api_routes._create_gemini_service("key", "model")
+        second = api_routes._create_gemini_service("key", "model")
+
+        assert first is second
+        mock_service.assert_called_once_with(api_key="key", model_name="model")
+        api_routes._create_gemini_service.cache_clear()
+
 
 # ════════════════════════════════════════════════════════════
 # WEATHER API
 # ════════════════════════════════════════════════════════════
+
 
 class TestWeatherAPI:
     """Test GET /api/weather endpoint."""
@@ -147,6 +166,7 @@ class TestWeatherAPI:
 # CHAT API
 # ════════════════════════════════════════════════════════════
 
+
 class TestChatAPI:
     """Test POST /api/chat endpoint."""
 
@@ -195,6 +215,7 @@ class TestChatAPI:
 # PREPAREDNESS PLAN API
 # ════════════════════════════════════════════════════════════
 
+
 class TestPlanAPI:
     """Test POST /api/preparedness-plan endpoint."""
 
@@ -224,13 +245,16 @@ class TestPlanAPI:
         mock_svc.generate_preparedness_plan.return_value = "## Your Plan\n- Stay safe"
         mock_gemini_fn.return_value = mock_svc
 
-        resp = self._post(client, {
-            "location": "Mumbai",
-            "family_size": 4,
-            "phase": "active-monsoon",
-            "vulnerabilities": ["elderly"],
-            "language": "English",
-        })
+        resp = self._post(
+            client,
+            {
+                "location": "Mumbai",
+                "family_size": 4,
+                "phase": "active-monsoon",
+                "vulnerabilities": ["elderly"],
+                "language": "English",
+            },
+        )
         assert resp.status_code == 200
         data = resp.get_json()
         assert "plan" in data
@@ -239,6 +263,7 @@ class TestPlanAPI:
 # ════════════════════════════════════════════════════════════
 # CHECKLIST API
 # ════════════════════════════════════════════════════════════
+
 
 class TestChecklistAPI:
     """Test POST /api/checklist endpoint."""
@@ -260,11 +285,14 @@ class TestChecklistAPI:
         mock_svc.generate_checklist.return_value = "## Checklist\n- Water"
         mock_gemini_fn.return_value = mock_svc
 
-        resp = self._post(client, {
-            "location": "Chennai",
-            "housing_type": "apartment",
-            "family_size": 3,
-        })
+        resp = self._post(
+            client,
+            {
+                "location": "Chennai",
+                "housing_type": "apartment",
+                "family_size": 3,
+            },
+        )
         assert resp.status_code == 200
         assert "checklist" in resp.get_json()
 
@@ -272,6 +300,7 @@ class TestChecklistAPI:
 # ════════════════════════════════════════════════════════════
 # TRAVEL ADVISORY API
 # ════════════════════════════════════════════════════════════
+
 
 class TestTravelAPI:
     """Test POST /api/travel-advisory endpoint."""
@@ -284,40 +313,51 @@ class TestTravelAPI:
         )
 
     def test_past_date_returns_400(self, client):
-        resp = self._post(client, {
-            "origin": "Bangalore",
-            "destination": "Coorg",
-            "travel_date": "2020-01-01",
-            "transport_mode": "car",
-        })
+        resp = self._post(
+            client,
+            {
+                "origin": "Bangalore",
+                "destination": "Coorg",
+                "travel_date": "2020-01-01",
+                "transport_mode": "car",
+            },
+        )
         assert resp.status_code == 400
 
     def test_invalid_transport_mode_returns_400(self, client):
         from datetime import date, timedelta
+
         future = (date.today() + timedelta(days=3)).isoformat()
-        resp = self._post(client, {
-            "origin": "Bangalore",
-            "destination": "Coorg",
-            "travel_date": future,
-            "transport_mode": "rocket",
-        })
+        resp = self._post(
+            client,
+            {
+                "origin": "Bangalore",
+                "destination": "Coorg",
+                "travel_date": future,
+                "transport_mode": "rocket",
+            },
+        )
         assert resp.status_code == 400
 
     @patch("app.routes.api._get_gemini_service")
     def test_valid_request_returns_advisory(self, mock_gemini_fn, client):
         from datetime import date, timedelta
+
         future = (date.today() + timedelta(days=3)).isoformat()
 
         mock_svc = MagicMock()
         mock_svc.generate_travel_advisory.return_value = "⚠️ High risk route"
         mock_gemini_fn.return_value = mock_svc
 
-        resp = self._post(client, {
-            "origin": "Bangalore",
-            "destination": "Mysore",
-            "travel_date": future,
-            "transport_mode": "car",
-        })
+        resp = self._post(
+            client,
+            {
+                "origin": "Bangalore",
+                "destination": "Mysore",
+                "travel_date": future,
+                "transport_mode": "car",
+            },
+        )
         assert resp.status_code == 200
         assert "advisory" in resp.get_json()
 
@@ -325,6 +365,7 @@ class TestTravelAPI:
 # ════════════════════════════════════════════════════════════
 # ALERTS API
 # ════════════════════════════════════════════════════════════
+
 
 class TestAlertsAPI:
     """Test POST /api/alerts endpoint."""

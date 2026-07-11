@@ -40,12 +40,15 @@ def create_app(env_name: str = "default") -> Flask:
     limiter.init_app(app)
     _configure_security_headers(app)
 
+    from app.utils.csrf import init_csrf
     from app.utils.db import init_db
+
     init_db(app)
+    init_csrf(app)
 
     # ── Register blueprints ───────────────────────────────────
-    from app.routes.main import main_bp
     from app.routes.api import api_bp
+    from app.routes.main import main_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp, url_prefix="/api")
@@ -98,6 +101,10 @@ def _register_error_handlers(app: Flask) -> None:
     @app.errorhandler(405)
     def method_not_allowed(_err):
         return jsonify({"error": "Method not allowed"}), 405
+
+    @app.errorhandler(400)
+    def bad_request(err):
+        return jsonify({"error": getattr(err, "description", "Bad request")}), 400
 
     @app.errorhandler(429)
     def rate_limit_exceeded(err):

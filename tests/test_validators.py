@@ -10,32 +10,31 @@ Tests every public function in app/utils/validators.py including:
 Run with:  pytest tests/test_validators.py -v
 """
 
-import pytest
 from datetime import date, timedelta
 
+import pytest
+
 from app.utils.validators import (
-    sanitise_text,
-    sanitise_city,
-    validate_family_size,
-    validate_language,
-    validate_phase,
-    validate_housing_type,
-    validate_transport_mode,
-    validate_vulnerabilities,
-    validate_date,
-    MAX_TEXT_LENGTH,
     MAX_CITY_LENGTH,
     MAX_FAMILY_SIZE,
-    MIN_FAMILY_SIZE,
+    MAX_TEXT_LENGTH,
+    sanitise_city,
+    sanitise_text,
+    validate_date,
+    validate_family_size,
+    validate_housing_type,
+    validate_language,
+    validate_phase,
+    validate_transport_mode,
+    validate_vulnerabilities,
 )
-
 
 # ════════════════════════════════════════════════════════════
 # sanitise_text
 # ════════════════════════════════════════════════════════════
 
-class TestSanitiseText:
 
+class TestSanitiseText:
     def test_valid_text_passes(self):
         text, err = sanitise_text("What should I do during a flood?")
         assert err is None
@@ -91,8 +90,8 @@ class TestSanitiseText:
 # sanitise_city
 # ════════════════════════════════════════════════════════════
 
-class TestSanitiseCity:
 
+class TestSanitiseCity:
     def test_valid_indian_city_passes(self):
         city, err = sanitise_city("Mumbai")
         assert err is None
@@ -132,8 +131,8 @@ class TestSanitiseCity:
 # validate_family_size
 # ════════════════════════════════════════════════════════════
 
-class TestValidateFamilySize:
 
+class TestValidateFamilySize:
     def test_valid_integer_passes(self):
         size, err = validate_family_size(4)
         assert err is None
@@ -175,8 +174,8 @@ class TestValidateFamilySize:
 # validate_language
 # ════════════════════════════════════════════════════════════
 
-class TestValidateLanguage:
 
+class TestValidateLanguage:
     def test_english_passes(self):
         lang, err = validate_language("English")
         assert err is None
@@ -186,10 +185,21 @@ class TestValidateLanguage:
         lang, err = validate_language("Hindi")
         assert err is None
 
-    @pytest.mark.parametrize("lang", [
-        "Bengali", "Tamil", "Telugu", "Marathi",
-        "Gujarati", "Kannada", "Malayalam", "Punjabi", "Odia", "Urdu"
-    ])
+    @pytest.mark.parametrize(
+        "lang",
+        [
+            "Bengali",
+            "Tamil",
+            "Telugu",
+            "Marathi",
+            "Gujarati",
+            "Kannada",
+            "Malayalam",
+            "Punjabi",
+            "Odia",
+            "Urdu",
+        ],
+    )
     def test_all_supported_languages_pass(self, lang):
         result, err = validate_language(lang)
         assert err is None
@@ -209,12 +219,11 @@ class TestValidateLanguage:
 # validate_phase
 # ════════════════════════════════════════════════════════════
 
-class TestValidatePhase:
 
-    @pytest.mark.parametrize("phase", [
-        "pre-monsoon", "active-monsoon", "post-monsoon",
-        "before", "during", "after"
-    ])
+class TestValidatePhase:
+    @pytest.mark.parametrize(
+        "phase", ["pre-monsoon", "active-monsoon", "post-monsoon", "before", "during", "after"]
+    )
     def test_valid_phases_pass(self, phase):
         result, err = validate_phase(phase)
         assert err is None
@@ -233,8 +242,8 @@ class TestValidatePhase:
 # validate_housing_type
 # ════════════════════════════════════════════════════════════
 
-class TestValidateHousingType:
 
+class TestValidateHousingType:
     def test_apartment_passes(self):
         result, err = validate_housing_type("apartment")
         assert err is None
@@ -256,8 +265,8 @@ class TestValidateHousingType:
 # validate_transport_mode
 # ════════════════════════════════════════════════════════════
 
-class TestValidateTransportMode:
 
+class TestValidateTransportMode:
     @pytest.mark.parametrize("mode", ["car", "bike", "bus", "train", "flight", "walk"])
     def test_valid_modes_pass(self, mode):
         result, err = validate_transport_mode(mode)
@@ -272,8 +281,8 @@ class TestValidateTransportMode:
 # validate_vulnerabilities
 # ════════════════════════════════════════════════════════════
 
-class TestValidateVulnerabilities:
 
+class TestValidateVulnerabilities:
     def test_valid_vulnerabilities_pass(self):
         result, err = validate_vulnerabilities(["elderly", "infant"])
         assert err is None
@@ -306,8 +315,8 @@ class TestValidateVulnerabilities:
 # validate_date
 # ════════════════════════════════════════════════════════════
 
-class TestValidateDate:
 
+class TestValidateDate:
     def test_future_date_passes(self):
         future = (date.today() + timedelta(days=5)).isoformat()
         result, err = validate_date(future)

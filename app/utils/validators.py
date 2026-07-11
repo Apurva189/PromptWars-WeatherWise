@@ -11,21 +11,30 @@ Public functions return (cleaned_value, error_message | None).
 A non-None error message means validation failed.
 """
 
-import re
 import html
-from datetime import datetime, date
-
+import re
+from datetime import date, datetime
 
 # ── Constants ─────────────────────────────────────────────────
-MAX_TEXT_LENGTH = 500          # Max chars for free-text fields
-MAX_CITY_LENGTH = 100          # Max chars for city/location fields
-MAX_FAMILY_SIZE = 50           # Reasonable upper bound
+MAX_TEXT_LENGTH = 500  # Max chars for free-text fields
+MAX_CITY_LENGTH = 100  # Max chars for city/location fields
+MAX_FAMILY_SIZE = 50  # Reasonable upper bound
 MIN_FAMILY_SIZE = 1
 
 # Allowed language names
 SUPPORTED_LANGUAGES = {
-    "English", "Hindi", "Bengali", "Tamil", "Telugu", "Marathi",
-    "Gujarati", "Kannada", "Malayalam", "Punjabi", "Odia", "Urdu",
+    "English",
+    "Hindi",
+    "Bengali",
+    "Tamil",
+    "Telugu",
+    "Marathi",
+    "Gujarati",
+    "Kannada",
+    "Malayalam",
+    "Punjabi",
+    "Odia",
+    "Urdu",
 }
 
 # Allowed enum values for various fields
@@ -33,8 +42,14 @@ ALLOWED_PHASES = {"pre-monsoon", "active-monsoon", "post-monsoon", "before", "du
 ALLOWED_HOUSING_TYPES = {"apartment", "independent-house", "rural-home"}
 ALLOWED_TRANSPORT_MODES = {"car", "bike", "bus", "train", "flight", "walk"}
 ALLOWED_VULNERABILITIES = {
-    "elderly", "infant", "toddler", "disability", "medical-equipment",
-    "pregnant", "chronic-illness", "pets",
+    "elderly",
+    "infant",
+    "toddler",
+    "disability",
+    "medical-equipment",
+    "pregnant",
+    "chronic-illness",
+    "pets",
 }
 
 # Regex: city names may contain letters, spaces, hyphens, dots, and apostrophes

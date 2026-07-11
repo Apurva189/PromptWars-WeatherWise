@@ -4,16 +4,26 @@ WeatherWise — Main Page & Authentication Routes
 Serves main pages (landing, dashboard) and manages user login/registration/logout.
 """
 
-import sqlite3
 import secrets
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify
-from werkzeug.security import generate_password_hash, check_password_hash
+import sqlite3
 
-from app.utils.db import get_db
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
+
 from app.utils.auth import login_required
+from app.utils.db import get_db
 from app.utils.validators import sanitise_text
 
 main_bp = Blueprint("main", __name__)
+
+
+def _validate_new_password(password: str, confirmation: str) -> str | None:
+    """Return a user-facing validation error, or ``None`` for a valid password."""
+    if len(password) < 6:
+        return "Password must be at least 6 characters long."
+    if password != confirmation:
+        return "Passwords do not match."
+    return None
 
 
 @main_bp.route("/", methods=["GET"])
@@ -47,12 +57,9 @@ def register():
             flash(err or "Invalid username.", "error")
             return render_template("register.html")
 
-        if len(password) < 6:
-            flash("Password must be at least 6 characters long.", "error")
-            return render_template("register.html")
-
-        if password != confirm_password:
-            flash("Passwords do not match.", "error")
+        password_error = _validate_new_password(password, confirm_password)
+        if password_error:
+            flash(password_error, "error")
             return render_template("register.html")
 
         db = get_db()
@@ -97,9 +104,7 @@ def login():
             return render_template("login.html")
 
         db = get_db()
-        user = db.execute(
-            "SELECT * FROM users WHERE username = ?", (username,)
-        ).fetchone()
+        user = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
 
         if user is None or not check_password_hash(user["password_hash"], password):
             flash("Incorrect username or password.", "error")
@@ -130,11 +135,9 @@ def forgot_password():
         if err or not username:
             flash(err or "Invalid username.", "error")
             return render_template("forgot_password.html")
-        if len(password) < 6:
-            flash("Password must be at least 6 characters long.", "error")
-            return render_template("forgot_password.html")
-        if password != confirm_password:
-            flash("Passwords do not match.", "error")
+        password_error = _validate_new_password(password, confirm_password)
+        if password_error:
+            flash(password_error, "error")
             return render_template("forgot_password.html")
 
         db = get_db()
@@ -170,7 +173,7 @@ def forgot_password():
     return render_template("forgot_password.html")
 
 
-@main_bp.route("/logout", methods=["GET", "POST"])
+@main_bp.route("/logout", methods=["POST"])
 def logout():
     """Clear session data and redirect to landing page."""
     session.clear()

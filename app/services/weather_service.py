@@ -22,6 +22,7 @@ _FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 
 # ── HTTP timeout (seconds) ─────────────────────────────────────
 _REQUEST_TIMEOUT = 10
+_HTTP = requests.Session()
 
 # ── Weather variables to fetch ─────────────────────────────────
 _HOURLY_VARS = [
@@ -64,6 +65,10 @@ class WeatherService:
     All methods are stateless and safe to call concurrently.
     """
 
+    def __init__(self) -> None:
+        self._city_cache: dict[tuple[str, int], list[dict[str, Any]]] = {}
+        self._geocode_cache: dict[str, dict] = {}
+
     def get_weather(self, city: str) -> dict[str, Any]:
         """
         Fetch current weather and 24h precipitation forecast for a city.
@@ -86,8 +91,11 @@ class WeatherService:
 
     def search_cities(self, query: str, count: int = 8) -> list[dict[str, Any]]:
         """Return matching places for the city autocomplete UI."""
+        key = (query.casefold(), count)
+        if key in self._city_cache:
+            return [dict(place) for place in self._city_cache[key]]
         try:
-            resp = requests.get(
+            resp = _HTTP.get(
                 _GEOCODING_URL,
                 params={
                     "name": query,
@@ -99,7 +107,7 @@ class WeatherService:
             )
             resp.raise_for_status()
             results = resp.json().get("results", [])
-            return [
+            matches = [
                 {
                     "name": item.get("name", ""),
                     "admin1": item.get("admin1", ""),
@@ -110,6 +118,8 @@ class WeatherService:
                 for item in results
                 if item.get("name")
             ]
+            self._store_bounded(self._city_cache, key, matches, 128)
+            return [dict(place) for place in matches]
         except (requests.RequestException, ValueError) as exc:
             logger.error("City search error for '%s': %s", query, exc)
             return []
@@ -146,8 +156,11 @@ class WeatherService:
 
     def _geocode(self, city: str) -> dict | None:
         """Resolve city name to (latitude, longitude, country)."""
+        key = city.casefold()
+        if key in self._geocode_cache:
+            return dict(self._geocode_cache[key])
         try:
-            resp = requests.get(
+            resp = _HTTP.get(
                 _GEOCODING_URL,
                 params={"name": city, "count": 1, "language": "en", "format": "json"},
                 timeout=_REQUEST_TIMEOUT,
@@ -158,21 +171,30 @@ class WeatherService:
             if not results:
                 return None
             r = results[0]
-            return {
+            result = {
                 "latitude": r["latitude"],
                 "longitude": r["longitude"],
                 "name": r.get("name", city),
                 "country": r.get("country", ""),
                 "admin1": r.get("admin1", ""),  # State / province
             }
+            self._store_bounded(self._geocode_cache, key, result, 256)
+            return dict(result)
         except requests.RequestException as exc:
             logger.error("Geocoding error for '%s': %s", city, exc)
             return None
 
+    @staticmethod
+    def _store_bounded(cache: dict, key: Any, value: Any, limit: int) -> None:
+        """Insert into a small FIFO cache without retaining unbounded input data."""
+        if len(cache) >= limit:
+            cache.pop(next(iter(cache)))
+        cache[key] = value
+
     def _fetch_forecast(self, lat: float, lon: float) -> dict:
         """Fetch hourly forecast from Open-Meteo."""
         try:
-            resp = requests.get(
+            resp = _HTTP.get(
                 _FORECAST_URL,
                 params={
                     "latitude": lat,
@@ -219,9 +241,7 @@ class WeatherService:
         forecast_summary = {
             "total_precipitation_24h": sum(p for p in precip_list if p),
             "max_rain_probability": max((p for p in prob_list if p is not None), default=0),
-            "monsoon_alert_level": self._calculate_alert_level(
-                sum(p for p in precip_list if p)
-            ),
+            "monsoon_alert_level": self._calculate_alert_level(sum(p for p in precip_list if p)),
         }
 
         return {
@@ -232,7 +252,7 @@ class WeatherService:
             "longitude": coords["longitude"],
             "current": current,
             "forecast_summary": forecast_summary,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017 (Python 3.10)
         }
 
     @staticmethod
