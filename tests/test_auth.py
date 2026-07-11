@@ -7,6 +7,7 @@ Run with:  pytest tests/test_auth.py -v
 """
 
 import os
+import re
 import sqlite3
 import pytest
 from flask import session
@@ -40,7 +41,8 @@ def app():
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL
+                password_hash TEXT NOT NULL,
+                recovery_code_hash TEXT
             )
             """
         )
@@ -58,13 +60,17 @@ def app():
 
     # Patch the get_db import inside app context
     import app.utils.db
+    import app.routes.main
     original_get_db = app.utils.db.get_db
+    original_main_get_db = app.routes.main.get_db
     app.utils.db.get_db = test_get_db
+    app.routes.main.get_db = test_get_db
 
     yield application
 
     # Tear down patches and delete temp db file
     app.utils.db.get_db = original_get_db
+    app.routes.main.get_db = original_main_get_db
     if os.path.exists(test_db_path):
         os.remove(test_db_path)
 
@@ -88,7 +94,7 @@ class TestRegister:
     def test_register_success(self, client):
         resp = client.post(
             "/register",
-            data={"username": "newUser1", "password": "password123"},
+            data={"username": "newUser1", "password": "password123", "confirm_password": "password123"},
             follow_redirects=True,
         )
         assert resp.status_code == 200
@@ -99,12 +105,12 @@ class TestRegister:
         # Register once
         client.post(
             "/register",
-            data={"username": "duplicateUser", "password": "password123"},
+            data={"username": "duplicateUser", "password": "password123", "confirm_password": "password123"},
         )
         # Register duplicate username
         resp = client.post(
             "/register",
-            data={"username": "duplicateUser", "password": "differentPassword"},
+            data={"username": "duplicateUser", "password": "differentPassword", "confirm_password": "differentPassword"},
             follow_redirects=True,
         )
         assert resp.status_code == 200
@@ -113,7 +119,7 @@ class TestRegister:
     def test_register_short_password_fails(self, client):
         resp = client.post(
             "/register",
-            data={"username": "user1", "password": "123"},
+            data={"username": "user1", "password": "123", "confirm_password": "123"},
             follow_redirects=True,
         )
         assert resp.status_code == 200
@@ -122,11 +128,19 @@ class TestRegister:
     def test_register_invalid_username_fails(self, client):
         resp = client.post(
             "/register",
-            data={"username": "", "password": "password123"},
+            data={"username": "", "password": "password123", "confirm_password": "password123"},
             follow_redirects=True,
         )
         assert resp.status_code == 200
         assert b"cannot be empty" in resp.data or b"Invalid username" in resp.data
+
+    def test_register_password_confirmation_must_match(self, client):
+        resp = client.post(
+            "/register",
+            data={"username": "user2", "password": "password123", "confirm_password": "different123"},
+            follow_redirects=True,
+        )
+        assert b"Passwords do not match" in resp.data
 
 
 # ════════════════════════════════════════════════════════════
@@ -144,7 +158,7 @@ class TestLogin:
         # First register
         client.post(
             "/register",
-            data={"username": "authuser", "password": "password123"},
+            data={"username": "authuser", "password": "password123", "confirm_password": "password123"},
         )
         # Now login
         resp = client.post(
@@ -159,7 +173,7 @@ class TestLogin:
     def test_login_incorrect_password_fails(self, client):
         client.post(
             "/register",
-            data={"username": "wrongpassuser", "password": "password123"},
+            data={"username": "wrongpassuser", "password": "password123", "confirm_password": "password123"},
         )
         resp = client.post(
             "/login",
@@ -168,6 +182,66 @@ class TestLogin:
         )
         assert resp.status_code == 200
         assert b"Incorrect username or password" in resp.data
+
+
+class TestForgotPassword:
+
+    def test_forgot_password_page_loads(self, client):
+        resp = client.get("/forgot-password")
+        assert resp.status_code == 200
+        assert b"Reset Password" in resp.data
+
+    def test_password_can_be_reset_with_recovery_code(self, client):
+        registration = client.post(
+            "/register",
+            data={
+                "username": "resetuser",
+                "password": "oldpassword",
+                "confirm_password": "oldpassword",
+            },
+            follow_redirects=True,
+        )
+        match = re.search(rb"recovery code now: ([A-F0-9]{12})", registration.data)
+        assert match is not None
+
+        reset = client.post(
+            "/forgot-password",
+            data={
+                "username": "resetuser",
+                "recovery_code": match.group(1).decode(),
+                "password": "newpassword",
+                "confirm_password": "newpassword",
+            },
+            follow_redirects=True,
+        )
+        assert b"Password reset successful" in reset.data
+
+        old_login = client.post(
+            "/login",
+            data={"username": "resetuser", "password": "oldpassword"},
+            follow_redirects=True,
+        )
+        assert b"Incorrect username or password" in old_login.data
+
+        new_login = client.post(
+            "/login",
+            data={"username": "resetuser", "password": "newpassword"},
+            follow_redirects=True,
+        )
+        assert b"Dashboard" in new_login.data
+
+    def test_reset_rejects_mismatched_passwords(self, client):
+        resp = client.post(
+            "/forgot-password",
+            data={
+                "username": "someuser",
+                "recovery_code": "ABCDEF123456",
+                "password": "newpassword",
+                "confirm_password": "differentpassword",
+            },
+            follow_redirects=True,
+        )
+        assert b"Passwords do not match" in resp.data
 
     def test_login_nonexistent_user_fails(self, client):
         resp = client.post(
@@ -201,7 +275,7 @@ class TestProtectedRoutes:
         # Register & Login
         client.post(
             "/register",
-            data={"username": "dashboarduser", "password": "password123"},
+            data={"username": "dashboarduser", "password": "password123", "confirm_password": "password123"},
         )
         client.post(
             "/login",
@@ -216,7 +290,7 @@ class TestProtectedRoutes:
         # Register & Login
         client.post(
             "/register",
-            data={"username": "logoutuser", "password": "password123"},
+            data={"username": "logoutuser", "password": "password123", "confirm_password": "password123"},
         )
         client.post(
             "/login",

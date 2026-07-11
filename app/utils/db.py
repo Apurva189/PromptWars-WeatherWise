@@ -49,10 +49,15 @@ def init_db(app):
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL
+                password_hash TEXT NOT NULL,
+                recovery_code_hash TEXT
             )
             """
         )
+        # Upgrade databases created before password recovery was introduced.
+        columns = {row[1] for row in cursor.execute("PRAGMA table_info(users)")}
+        if "recovery_code_hash" not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN recovery_code_hash TEXT")
         conn.commit()
     finally:
         conn.close()
