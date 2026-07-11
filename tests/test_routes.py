@@ -11,6 +11,7 @@ Run with:  pytest tests/test_routes.py -v
 """
 
 import json
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -391,3 +392,93 @@ class TestAlertsAPI:
         resp = self._post(client, {"location": "Kolkata", "phase": "during"})
         assert resp.status_code == 200
         assert "alerts" in resp.get_json()
+
+
+class TestAPIFailureContracts:
+    """Verify service failures are translated into stable, safe HTTP responses."""
+
+    @pytest.mark.parametrize(
+        ("path", "payload", "service_method"),
+        [
+            ("/api/chat", {"message": "Help me prepare"}, "chat"),
+            (
+                "/api/preparedness-plan",
+                {"location": "Pune", "family_size": 4, "phase": "active-monsoon"},
+                "generate_preparedness_plan",
+            ),
+            (
+                "/api/checklist",
+                {"location": "Chennai", "housing_type": "apartment", "family_size": 3},
+                "generate_checklist",
+            ),
+            (
+                "/api/travel-advisory",
+                {
+                    "origin": "Pune",
+                    "destination": "Mumbai",
+                    "travel_date": date.today().isoformat(),
+                    "transport_mode": "car",
+                },
+                "generate_travel_advisory",
+            ),
+            ("/api/alerts", {"location": "Kolkata", "phase": "during"}, "generate_alerts"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        ("failure", "expected_status"),
+        [(ValueError("invalid request"), 400), (RuntimeError("provider down"), 500)],
+    )
+    @patch("app.routes.api._try_get_weather_context", return_value="")
+    @patch("app.routes.api._get_gemini_service")
+    def test_ai_service_failures_return_json_errors(
+        self,
+        mock_gemini_fn,
+        _mock_weather,
+        failure,
+        expected_status,
+        path,
+        payload,
+        service_method,
+        client,
+    ):
+        service = MagicMock()
+        getattr(service, service_method).side_effect = failure
+        mock_gemini_fn.return_value = service
+
+        response = client.post(path, json=payload)
+
+        assert response.status_code == expected_status
+        assert response.is_json
+        assert response.get_json()["error"]
+
+    @patch("app.routes.api.weather_svc")
+    def test_unexpected_weather_failure_is_hidden(self, mock_weather, client):
+        mock_weather.get_weather.side_effect = RuntimeError("secret provider details")
+
+        response = client.get("/api/weather?city=Mumbai")
+
+        assert response.status_code == 500
+        assert response.get_json() == {"error": "Could not fetch weather data."}
+
+    def test_invalid_city_search_returns_400(self, client):
+        response = client.get("/api/cities?q=%3Cscript%3E")
+
+        assert response.status_code == 400
+        assert "error" in response.get_json()
+
+    @patch("app.routes.api.weather_svc")
+    def test_weather_context_is_built_when_weather_is_available(self, mock_weather):
+        weather = {"city": "Pune"}
+        mock_weather.get_weather.return_value = weather
+        mock_weather.build_weather_context_string.return_value = "Rain expected"
+
+        result = api_routes._try_get_weather_context("Pune")
+
+        assert result == "Rain expected"
+        mock_weather.build_weather_context_string.assert_called_once_with(weather)
+
+    @patch("app.routes.api.weather_svc")
+    def test_weather_context_failure_returns_empty_string(self, mock_weather):
+        mock_weather.get_weather.side_effect = RuntimeError("unavailable")
+
+        assert api_routes._try_get_weather_context("Pune") == ""
