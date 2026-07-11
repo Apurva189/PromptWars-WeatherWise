@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Register — WeatherWise{% endblock %}
+{% block meta_description %}Create an account on WeatherWise to get safety recommendations, emergency checklists, and weather warnings for your area.{% endblock %}
+
+{% block body %}
+<div class="auth-page">
+  <div class="rain-container" aria-hidden="true" id="rain-container"></div>
+
+  <div class="auth-card">
+    <div class="auth-card__header">
+      <a href="/" class="nav__logo auth-logo" aria-label="Go to WeatherWise home">
+        <span class="nav__logo-icon">🌧️</span>
+        <span class="nav__logo-text">WeatherWise</span>
+      </a>
+      <h1 class="auth-card__title">Create Account</h1>
+      <p class="auth-card__subtitle">Join WeatherWise to start preparing for the monsoon.</p>
+    </div>
+
+    <!-- Display flashed messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="auth-flash-container" role="alert">
+          {% for category, message in messages %}
+            <div class="auth-flash auth-flash--{{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <form class="auth-form" method="POST" action="{{ url_for('main.register') }}" novalidate>
+      <div class="form-group">
+        <label for="username" class="form-label">👤 Username</label>
+        <input
+          type="text"
+          id="username"
+          name="username"
+          class="form-input"
+          placeholder="Choose a username"
+          required
+          aria-required="true"
+          maxlength="100"
+          autofocus
+        />
+        <p class="form-help-text">Can contain letters, numbers, spaces, dots, hyphens.</p>
+      </div>
+
+      <div class="form-group">
+        <label for="password" class="form-label">🔒 Password</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          class="form-input"
+          placeholder="Min 6 characters"
+          required
+          aria-required="true"
+          minlength="6"
+        />
+      </div>
+
+      <button type="submit" class="btn btn--primary btn--full auth-btn">
+        <span>Register Account</span>
+      </button>
+    </form>
+
+    <div class="auth-card__footer">
+      <p>Already have an account? <a href="{{ url_for('main.login') }}">Log in here</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // Dynamic rain drops background
+  document.addEventListener('DOMContentLoaded', () => {
+    const container = document.getElementById('rain-container');
+    if (!container) return;
+    const dropCount = window.innerWidth < 768 ? 30 : 60;
+    for (let i = 0; i < dropCount; i++) {
+      const drop = document.createElement('div');
+      drop.className = 'rain-drop';
+      drop.style.left = `${Math.random() * 100}%`;
+      drop.style.animationDuration = `${0.5 + Math.random() * 1s}s`;
+      drop.style.animationDelay = `${Math.random() * 2}s`;
+      drop.style.height = `${10 + Math.random() * 20}px`;
+      drop.style.opacity = `${0.2 + Math.random() * 0.4}`;
+      container.appendChild(drop);
+    }
+  });
+</script>
+{% endblock %}

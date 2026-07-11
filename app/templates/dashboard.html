@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — WeatherWise{% endblock %}
+{% block meta_description %}WeatherWise dashboard — use AI to generate monsoon preparedness plans, checklists, travel advisories, and safety alerts.{% endblock %}
+
+{% block body %}
+<div class="dashboard" id="dashboard">
+
+  <!-- ═══════════════════════════════════════════════════════
+       TOP NAVBAR
+  ════════════════════════════════════════════════════════ -->
+  <header class="dash-nav" role="banner">
+    <a href="/" class="nav__logo" aria-label="Go to WeatherWise home">
+      <span class="nav__logo-icon">🌧️</span>
+      <span class="nav__logo-text">WeatherWise</span>
+    </a>
+
+    <!-- Weather widget -->
+    <div class="weather-widget" id="weather-widget" aria-live="polite" aria-label="Current weather">
+      <div class="ww__search">
+        <input
+          type="text"
+          id="city-input"
+          class="ww__input"
+          placeholder="Enter city…"
+          value="Mumbai"
+          maxlength="100"
+          aria-label="Enter city name for weather"
+          data-city-autocomplete
+        />
+        <button class="ww__btn" id="weather-fetch-btn" aria-label="Get weather">🔍</button>
+      </div>
+      <div class="ww__data" id="ww-data">
+        <span class="ww__icon" id="ww-icon">🌧️</span>
+        <span class="ww__temp" id="ww-temp">--°C</span>
+        <span class="ww__desc" id="ww-desc">Loading…</span>
+        <span class="ww__alert" id="ww-alert">●</span>
+      </div>
+    </div>
+
+    <!-- Language selector & User menu -->
+    <div class="dash-nav-controls">
+      <div class="lang-selector">
+        <label for="language-select" class="sr-only">Select language</label>
+        <select id="language-select" class="lang-select" aria-label="Select response language">
+          <option value="English">🇬🇧 English</option>
+          <option value="Hindi">🇮🇳 हिंदी</option>
+          <option value="Bengali">বাংলা</option>
+          <option value="Tamil">தமிழ்</option>
+          <option value="Telugu">తెలుగు</option>
+          <option value="Marathi">मराठी</option>
+          <option value="Gujarati">ગુજરાતી</option>
+          <option value="Kannada">ಕನ್ನಡ</option>
+          <option value="Malayalam">മലയാളം</option>
+          <option value="Punjabi">ਪੰਜਾਬੀ</option>
+          <option value="Odia">ଓଡ଼ିଆ</option>
+          <option value="Urdu">اردو</option>
+        </select>
+      </div>
+
+      <div class="user-menu">
+        <span class="user-menu__name" title="Logged in as {{ username }}">👤 {{ username }}</span>
+        <a href="{{ url_for('main.logout') }}" class="btn btn--ghost btn--sm" id="logout-btn">Logout</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SIDEBAR NAVIGATION
+  ════════════════════════════════════════════════════════ -->
+  <nav class="sidebar" role="navigation" aria-label="Dashboard features">
+    <button class="sidebar__tab sidebar__tab--active" data-tab="chat" id="tab-chat" aria-selected="true" role="tab" aria-controls="panel-chat">
+      <span class="sidebar__tab-icon" aria-hidden="true">💬</span>
+      <span class="sidebar__tab-label">AI Chat</span>
+    </button>
+    <button class="sidebar__tab" data-tab="plan" id="tab-plan" aria-selected="false" role="tab" aria-controls="panel-plan">
+      <span class="sidebar__tab-icon" aria-hidden="true">🗺️</span>
+      <span class="sidebar__tab-label">My Plan</span>
+    </button>
+    <button class="sidebar__tab" data-tab="checklist" id="tab-checklist" aria-selected="false" role="tab" aria-controls="panel-checklist">
+      <span class="sidebar__tab-icon" aria-hidden="true">✅</span>
+      <span class="sidebar__tab-label">Checklist</span>
+    </button>
+    <button class="sidebar__tab" data-tab="travel" id="tab-travel" aria-selected="false" role="tab" aria-controls="panel-travel">
+      <span class="sidebar__tab-icon" aria-hidden="true">🚗</span>
+      <span class="sidebar__tab-label">Travel</span>
+    </button>
+    <button class="sidebar__tab" data-tab="alerts" id="tab-alerts" aria-selected="false" role="tab" aria-controls="panel-alerts">
+      <span class="sidebar__tab-icon" aria-hidden="true">⚠️</span>
+      <span class="sidebar__tab-label">Alerts</span>
+    </button>
+
+    <!-- Emergency numbers (always visible) -->
+    <div class="sidebar__emergency" aria-label="Emergency numbers">
+      <div class="emer__title">🆘 Emergency</div>
+      <div class="emer__number"><span>NDRF</span><strong>011-24363260</strong></div>
+      <div class="emer__number"><span>Police</span><strong>100</strong></div>
+      <div class="emer__number"><span>Ambulance</span><strong>108</strong></div>
+      <div class="emer__number"><span>Fire</span><strong>101</strong></div>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MAIN CONTENT PANELS
+  ════════════════════════════════════════════════════════ -->
+  <main class="dash-main" role="main">
+
+    <!-- ─── CHAT PANEL ──────────────────────────────────── -->
+    <section class="panel panel--active" id="panel-chat" role="tabpanel" aria-labelledby="tab-chat">
+      <div class="panel__header">
+        <div>
+          <h1 class="panel__title">AI Chat Assistant</h1>
+          <p class="panel__subtitle">Ask anything about monsoon safety, preparedness, or weather conditions.</p>
+        </div>
+        <button class="btn btn--ghost btn--sm" id="reset-chat-btn" aria-label="Reset conversation">
+          🔄 New Chat
+        </button>
+      </div>
+
+      <div class="chat-container">
+        <div class="chat-messages" id="chat-messages" role="log" aria-live="polite" aria-label="Chat messages">
+          <!-- Welcome message -->
+          <div class="chat-msg chat-msg--ai" id="welcome-msg">
+            <div class="chat-msg__avatar" aria-hidden="true">🌧️</div>
+            <div class="chat-msg__bubble">
+              <p>Hello! I'm WeatherWise, your AI monsoon safety assistant. 🌧️</p>
+              <p>I can help you with:</p>
+              <ul>
+                <li>Monsoon safety tips for your area</li>
+                <li>What to do if flooding occurs</li>
+                <li>How to protect your home</li>
+                <li>Emergency procedures</li>
+              </ul>
+              <p>What would you like to know?</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-area">
+          <div class="chat-input-wrapper">
+            <textarea
+              id="chat-input"
+              class="chat-input"
+              placeholder="Ask about monsoon safety, emergency procedures, flood preparedness…"
+              rows="1"
+              maxlength="500"
+              aria-label="Type your message"
+            ></textarea>
+            <button class="chat-send-btn" id="chat-send-btn" aria-label="Send message">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          </div>
+          <p class="chat-hint">Press <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> for new line</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── PREPAREDNESS PLAN PANEL ─────────────────────── -->
+    <section class="panel" id="panel-plan" role="tabpanel" aria-labelledby="tab-plan" hidden>
+      <div class="panel__header">
+        <div>
+          <h1 class="panel__title">My Preparedness Plan</h1>
+          <p class="panel__subtitle">AI generates a personalised monsoon plan for your family.</p>
+        </div>
+      </div>
+
+      <div class="panel__body">
+        <form class="ai-form" id="plan-form" aria-label="Preparedness plan form" novalidate>
+          <div class="form-grid">
+
+            <div class="form-group">
+              <label for="plan-location" class="form-label">📍 Location *</label>
+              <input type="text" id="plan-location" class="form-input" placeholder="e.g. Pune, Maharashtra" maxlength="100" required aria-required="true" data-city-autocomplete />
+            </div>
+
+            <div class="form-group">
+              <label for="plan-family-size" class="form-label">👨‍👩‍👧 Family Size *</label>
+              <input type="number" id="plan-family-size" class="form-input" placeholder="Number of people" min="1" max="50" value="4" required aria-required="true" />
+            </div>
+
+            <div class="form-group">
+              <label for="plan-phase" class="form-label">🌀 Monsoon Phase *</label>
+              <select id="plan-phase" class="form-select" aria-required="true">
+                <option value="pre-monsoon">Pre-Monsoon (Preparing)</option>
+                <option value="active-monsoon" selected>Active Monsoon (Ongoing)</option>
+                <option value="post-monsoon">Post-Monsoon (Recovery)</option>
+              </select>
+            </div>
+
+            <div class="form-group form-group--full">
+              <fieldset class="vuln-fieldset">
+                <legend class="form-label">⚠️ Special Considerations</legend>
+                <div class="vuln-grid">
+                  <label class="vuln-option"><input type="checkbox" value="elderly" name="vulnerability"> Elderly members</label>
+                  <label class="vuln-option"><input type="checkbox" value="infant" name="vulnerability"> Infants / babies</label>
+                  <label class="vuln-option"><input type="checkbox" value="toddler" name="vulnerability"> Young children</label>
+                  <label class="vuln-option"><input type="checkbox" value="disability" name="vulnerability"> Physical disability</label>
+                  <label class="vuln-option"><input type="checkbox" value="medical-equipment" name="vulnerability"> Medical equipment</label>
+                  <label class="vuln-option"><input type="checkbox" value="chronic-illness" name="vulnerability"> Chronic illness</label>
+                  <label class="vuln-option"><input type="checkbox" value="pregnant" name="vulnerability"> Pregnant member</label>
+                  <label class="vuln-option"><input type="checkbox" value="pets" name="vulnerability"> Pets</label>
+                </div>
+              </fieldset>
+            </div>
+
+          </div>
+
+          <button type="submit" class="btn btn--primary btn--full" id="plan-submit-btn">
+            <span>🤖 Generate My Plan</span>
+          </button>
+        </form>
+
+        <div class="ai-result" id="plan-result" hidden>
+          <div class="result-header">
+            <h2 class="result-title">📋 Your Personalised Plan</h2>
+            <button class="btn btn--ghost btn--sm copy-btn" data-target="plan-result-content" aria-label="Copy plan to clipboard">📋 Copy</button>
+          </div>
+          <div class="result-content" id="plan-result-content" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── CHECKLIST PANEL ─────────────────────────────── -->
+    <section class="panel" id="panel-checklist" role="tabpanel" aria-labelledby="tab-checklist" hidden>
+      <div class="panel__header">
+        <div>
+          <h1 class="panel__title">Emergency Checklist</h1>
+          <p class="panel__subtitle">AI-generated, prioritised checklist tailored to your home and family.</p>
+        </div>
+      </div>
+
+      <div class="panel__body">
+        <form class="ai-form" id="checklist-form" aria-label="Emergency checklist form" novalidate>
+          <div class="form-grid">
+
+            <div class="form-group">
+              <label for="checklist-location" class="form-label">📍 Location *</label>
+              <input type="text" id="checklist-location" class="form-input" placeholder="e.g. Chennai" maxlength="100" required aria-required="true" data-city-autocomplete />
+            </div>
+
+            <div class="form-group">
+              <label for="checklist-housing" class="form-label">🏠 Housing Type *</label>
+              <select id="checklist-housing" class="form-select" aria-required="true">
+                <option value="apartment">Apartment / Flat</option>
+                <option value="independent-house">Independent House</option>
+                <option value="rural-home">Rural Home / Village</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="checklist-family-size" class="form-label">👨‍👩‍👧 Family Size *</label>
+              <input type="number" id="checklist-family-size" class="form-input" placeholder="Number of people" min="1" max="50" value="3" required aria-required="true" />
+            </div>
+
+          </div>
+
+          <button type="submit" class="btn btn--primary btn--full" id="checklist-submit-btn">
+            <span>🤖 Generate Checklist</span>
+          </button>
+        </form>
+
+        <div class="ai-result" id="checklist-result" hidden>
+          <div class="result-header">
+            <h2 class="result-title">✅ Your Emergency Checklist</h2>
+            <button class="btn btn--ghost btn--sm copy-btn" data-target="checklist-result-content" aria-label="Copy checklist to clipboard">📋 Copy</button>
+          </div>
+          <div class="result-content" id="checklist-result-content" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── TRAVEL ADVISORY PANEL ───────────────────────── -->
+    <section class="panel" id="panel-travel" role="tabpanel" aria-labelledby="tab-travel" hidden>
+      <div class="panel__header">
+        <div>
+          <h1 class="panel__title">Travel Advisory</h1>
+          <p class="panel__subtitle">AI risk assessment and safety guidance for your monsoon journey.</p>
+        </div>
+      </div>
+
+      <div class="panel__body">
+        <form class="ai-form" id="travel-form" aria-label="Travel advisory form" novalidate>
+          <div class="form-grid">
+
+            <div class="form-group">
+              <label for="travel-origin" class="form-label">🟢 From *</label>
+              <input type="text" id="travel-origin" class="form-input" placeholder="Starting city" maxlength="100" required aria-required="true" data-city-autocomplete />
+            </div>
+
+            <div class="form-group">
+              <label for="travel-destination" class="form-label">🔴 To *</label>
+              <input type="text" id="travel-destination" class="form-input" placeholder="Destination city" maxlength="100" required aria-required="true" data-city-autocomplete />
+            </div>
+
+            <div class="form-group">
+              <label for="travel-date" class="form-label">📅 Travel Date *</label>
+              <input type="date" id="travel-date" class="form-input" required aria-required="true" />
+            </div>
+
+            <div class="form-group">
+              <label for="travel-mode" class="form-label">🚗 Transport Mode *</label>
+              <select id="travel-mode" class="form-select" aria-required="true">
+                <option value="car">Car / SUV</option>
+                <option value="bike">Motorcycle / Bike</option>
+                <option value="bus">Bus</option>
+                <option value="train">Train</option>
+                <option value="flight">Flight</option>
+                <option value="walk">Walking</option>
+              </select>
+            </div>
+
+          </div>
+
+          <button type="submit" class="btn btn--primary btn--full" id="travel-submit-btn">
+            <span>🤖 Get Travel Advisory</span>
+          </button>
+        </form>
+
+        <div class="ai-result" id="travel-result" hidden>
+          <div class="result-header">
+            <h2 class="result-title">🚗 Travel Safety Advisory</h2>
+            <button class="btn btn--ghost btn--sm copy-btn" data-target="travel-result-content" aria-label="Copy advisory to clipboard">📋 Copy</button>
+          </div>
+          <div class="result-content" id="travel-result-content" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── ALERTS PANEL ────────────────────────────────── -->
+    <section class="panel" id="panel-alerts" role="tabpanel" aria-labelledby="tab-alerts" hidden>
+      <div class="panel__header">
+        <div>
+          <h1 class="panel__title">Safety Alerts</h1>
+          <p class="panel__subtitle">AI-generated, colour-coded alerts based on your location and monsoon phase.</p>
+        </div>
+      </div>
+
+      <div class="panel__body">
+        <form class="ai-form" id="alerts-form" aria-label="Safety alerts form" novalidate>
+          <div class="form-grid">
+
+            <div class="form-group">
+              <label for="alerts-location" class="form-label">📍 Location *</label>
+              <input type="text" id="alerts-location" class="form-input" placeholder="e.g. Kolkata" maxlength="100" required aria-required="true" data-city-autocomplete />
+            </div>
+
+            <div class="form-group">
+              <label for="alerts-phase" class="form-label">🌀 Event Phase *</label>
+              <select id="alerts-phase" class="form-select" aria-required="true">
+                <option value="before">Before the storm (Pre-event)</option>
+                <option value="during" selected>During the storm (Active event)</option>
+                <option value="after">After the storm (Recovery)</option>
+              </select>
+            </div>
+
+          </div>
+
+          <button type="submit" class="btn btn--primary btn--full" id="alerts-submit-btn">
+            <span>🤖 Generate Alerts</span>
+          </button>
+        </form>
+
+        <div class="ai-result" id="alerts-result" hidden>
+          <div class="result-header">
+            <h2 class="result-title">⚠️ Safety Alerts</h2>
+            <button class="btn btn--ghost btn--sm copy-btn" data-target="alerts-result-content" aria-label="Copy alerts to clipboard">📋 Copy</button>
+          </div>
+          <div class="result-content" id="alerts-result-content" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+  </main><!-- /.dash-main -->
+</div><!-- /#dashboard -->
+
+<!-- Global loading overlay -->
+<div class="loading-overlay" id="loading-overlay" hidden aria-live="assertive" aria-label="Generating AI response">
+  <div class="loading-card">
+    <div class="loading-spinner" aria-hidden="true"></div>
+    <p class="loading-text" id="loading-text">Generating response…</p>
+    <p class="loading-hint">Powered by Google Gemini AI</p>
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast" role="alert" aria-live="assertive" hidden></div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // Set today as the minimum date for the travel date input
+  document.getElementById('travel-date').min = new Date().toISOString().split('T')[0];
+</script>
+{% endblock %}

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="{% block meta_description %}WeatherWise — AI-powered monsoon preparedness and citizen safety assistant for India.{% endblock %}" />
+  <meta name="theme-color" content="#0a1628" />
+
+  <!-- Open Graph for social sharing -->
+  <meta property="og:title" content="WeatherWise — Monsoon Preparedness AI" />
+  <meta property="og:description" content="Stay safe this monsoon season with personalised AI-powered preparedness plans, emergency checklists, and real-time alerts." />
+  <meta property="og:type" content="website" />
+
+  <title>{% block title %}WeatherWise — Monsoon Preparedness AI{% endblock %}</title>
+
+  <!-- Google Fonts: Inter for UI text, Outfit for headings -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  {% block body %}{% endblock %}
+
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

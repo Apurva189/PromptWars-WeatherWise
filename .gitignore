@@ -1,0 +1,44 @@
+# ─── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ─── Virtual Environments ────────────────────────────────
+venv/
+env/
+.venv/
+ENV/
+
+# ─── Environment & Secrets ───────────────────────────────
+# NEVER commit .env — it contains your API keys!
+.env
+
+# ─── Flask / App ─────────────────────────────────────────
+instance/
+.webassets-cache
+flask_session/
+
+# ─── Testing & Coverage ──────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+coverage.xml
+
+# ─── IDEs ────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─── Logs ────────────────────────────────────────────────
+*.log
+logs/

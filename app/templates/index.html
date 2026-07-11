@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}WeatherWise — AI Monsoon Preparedness for India{% endblock %}
+{% block meta_description %}WeatherWise uses Google Gemini AI to help you and your family prepare for the monsoon season with personalised plans, emergency checklists, travel advisories, and real-time safety alerts.{% endblock %}
+
+{% block body %}
+
+<!-- ═══════════════════════════════════════════════════════════
+     NAVIGATION
+════════════════════════════════════════════════════════════ -->
+<nav class="nav" role="navigation" aria-label="Main navigation">
+  <a href="/" class="nav__logo" aria-label="WeatherWise home">
+    <span class="nav__logo-icon">🌧️</span>
+    <span class="nav__logo-text">WeatherWise</span>
+  </a>
+  <div class="nav__links">
+    <a href="#features" class="nav__link">Features</a>
+    <a href="#how-it-works" class="nav__link">How It Works</a>
+    <a href="/dashboard" class="btn btn--primary btn--sm" id="cta-nav">Launch App</a>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════
+     HERO SECTION
+════════════════════════════════════════════════════════════ -->
+<header class="hero" role="banner">
+  <!-- Animated rain backdrop -->
+  <div class="rain-container" aria-hidden="true" id="rain-container"></div>
+
+  <div class="hero__content">
+    <div class="hero__badge">
+      <span class="badge__dot"></span>
+      Powered by Google Gemini AI
+    </div>
+
+    <h1 class="hero__title">
+      Stay Safe This
+      <span class="hero__title-gradient">Monsoon Season</span>
+    </h1>
+
+    <p class="hero__subtitle">
+      WeatherWise is your AI-powered companion for monsoon preparedness. 
+      Get personalised safety plans, emergency checklists, travel advisories, 
+      and real-time alerts — in your language.
+    </p>
+
+    <div class="hero__actions">
+      <a href="/dashboard" class="btn btn--primary btn--lg" id="cta-hero">
+        🚀 Start Preparing Now
+      </a>
+      <a href="#features" class="btn btn--ghost btn--lg">
+        Explore Features
+      </a>
+    </div>
+
+    <!-- Live stats bar -->
+    <div class="hero__stats">
+      <div class="stat">
+        <span class="stat__value">12+</span>
+        <span class="stat__label">Languages</span>
+      </div>
+      <div class="stat__divider"></div>
+      <div class="stat">
+        <span class="stat__value">6</span>
+        <span class="stat__label">AI Features</span>
+      </div>
+      <div class="stat__divider"></div>
+      <div class="stat">
+        <span class="stat__value">Free</span>
+        <span class="stat__label">To Use</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating weather card mock -->
+  <div class="hero__card" aria-hidden="true">
+    <div class="weather-card-mock">
+      <div class="wcm__header">
+        <span>🌩️ Mumbai, MH</span>
+        <span class="alert-badge alert-badge--orange">ORANGE ALERT</span>
+      </div>
+      <div class="wcm__temp">28°C</div>
+      <div class="wcm__meta">
+        <span>💧 87% humidity</span>
+        <span>🌬️ 24 km/h wind</span>
+      </div>
+      <div class="wcm__bar">
+        <div class="wcm__bar-fill" style="width:72%"></div>
+      </div>
+      <div class="wcm__rain">72mm rain expected today</div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════
+     FEATURES SECTION
+════════════════════════════════════════════════════════════ -->
+<section class="features" id="features" aria-labelledby="features-heading">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-tag">AI Features</span>
+      <h2 class="section-title" id="features-heading">
+        Everything You Need to Stay Safe
+      </h2>
+      <p class="section-subtitle">
+        Six powerful AI-driven tools, all in one place — personalised to your location and family.
+      </p>
+    </div>
+
+    <div class="features__grid">
+
+      <div class="feature-card" tabindex="0">
+        <div class="feature-card__icon">📋</div>
+        <h3 class="feature-card__title">Personalised Plans</h3>
+        <p class="feature-card__desc">
+          AI generates a tailored preparedness plan based on your location, family size, and special needs — for before, during, and after the monsoon.
+        </p>
+      </div>
+
+      <div class="feature-card feature-card--highlight" tabindex="0">
+        <div class="feature-card__icon">✅</div>
+        <h3 class="feature-card__title">Emergency Checklists</h3>
+        <p class="feature-card__desc">
+          Dynamic, location-aware checklists categorised by priority — from critical 72-hour kits to home waterproofing essentials.
+        </p>
+      </div>
+
+      <div class="feature-card" tabindex="0">
+        <div class="feature-card__icon">🚗</div>
+        <h3 class="feature-card__title">Travel Advisories</h3>
+        <p class="feature-card__desc">
+          Planning a journey? Get AI risk assessments, safer route alternatives, and go/no-go recommendations for monsoon travel.
+        </p>
+      </div>
+
+      <div class="feature-card" tabindex="0">
+        <div class="feature-card__icon">⚠️</div>
+        <h3 class="feature-card__title">Real-Time Alerts</h3>
+        <p class="feature-card__desc">
+          Phase-aware alerts (Red/Orange/Yellow) grounded in live weather data — before, during, and after severe weather events.
+        </p>
+      </div>
+
+      <div class="feature-card" tabindex="0">
+        <div class="feature-card__icon">💬</div>
+        <h3 class="feature-card__title">AI Chat Assistant</h3>
+        <p class="feature-card__desc">
+          Ask anything about monsoon safety. The AI remembers your conversation context and answers in your chosen language.
+        </p>
+      </div>
+
+      <div class="feature-card" tabindex="0">
+        <div class="feature-card__icon">🌐</div>
+        <h3 class="feature-card__title">Multilingual Support</h3>
+        <p class="feature-card__desc">
+          Full support for 12 Indian languages — Hindi, Tamil, Bengali, Telugu, Marathi, Gujarati, Kannada, and more.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     HOW IT WORKS
+════════════════════════════════════════════════════════════ -->
+<section class="how-it-works" id="how-it-works" aria-labelledby="hiw-heading">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-tag">Simple & Fast</span>
+      <h2 class="section-title" id="hiw-heading">How WeatherWise Works</h2>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step__number">01</div>
+        <h3 class="step__title">Enter Your Location</h3>
+        <p class="step__desc">Type your city. WeatherWise fetches live weather data automatically.</p>
+      </div>
+      <div class="step__connector" aria-hidden="true"></div>
+      <div class="step">
+        <div class="step__number">02</div>
+        <h3 class="step__title">Select Your Feature</h3>
+        <p class="step__desc">Choose from 6 AI-powered tools — plan, checklist, travel, alerts, or just chat.</p>
+      </div>
+      <div class="step__connector" aria-hidden="true"></div>
+      <div class="step">
+        <div class="step__number">03</div>
+        <h3 class="step__title">Get AI Guidance</h3>
+        <p class="step__desc">Google Gemini generates personalised, actionable advice in seconds.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ALERT BANNER
+════════════════════════════════════════════════════════════ -->
+<section class="alert-section" aria-label="Emergency reminder">
+  <div class="container">
+    <div class="alert-banner">
+      <span class="alert-banner__icon" aria-hidden="true">🆘</span>
+      <div class="alert-banner__text">
+        <strong>In a life-threatening emergency?</strong>
+        Call NDRF: <strong>011-24363260</strong> | Police: <strong>100</strong> | Ambulance: <strong>108</strong>
+      </div>
+      <a href="/dashboard" class="btn btn--danger btn--sm" id="cta-emergency">Open WeatherWise</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════════════════════ -->
+<footer class="footer" role="contentinfo">
+  <div class="container">
+    <div class="footer__brand">
+      <span class="nav__logo-icon">🌧️</span>
+      <span class="nav__logo-text">WeatherWise</span>
+    </div>
+    <p class="footer__note">
+      AI-generated content is for guidance only. Always follow official government 
+      and emergency service instructions during severe weather events.
+    </p>
+    <p class="footer__copy">
+      Built with ❤️ for India's monsoon season · Powered by Google Gemini AI
+    </p>
+  </div>
+</footer>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // Generate rain drops for the hero section
+  document.addEventListener('DOMContentLoaded', () => {
+    const container = document.getElementById('rain-container');
+    if (!container) return;
+    const dropCount = window.innerWidth < 768 ? 40 : 80;
+    for (let i = 0; i < dropCount; i++) {
+      const drop = document.createElement('div');
+      drop.className = 'rain-drop';
+      drop.style.left = `${Math.random() * 100}%`;
+      drop.style.animationDuration = `${0.5 + Math.random() * 1}s`;
+      drop.style.animationDelay = `${Math.random() * 2}s`;
+      drop.style.height = `${10 + Math.random() * 20}px`;
+      drop.style.opacity = `${0.3 + Math.random() * 0.5}`;
+      container.appendChild(drop);
+    }
+  });
+</script>
+{% endblock %}
